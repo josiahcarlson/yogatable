@@ -1,0 +1,4 @@
+PySDS is the Python Simple Data Store.
+
+It is meant to offer simple query and data storage semantics in a fashion
+similar to Google's Appengine Datastore.
