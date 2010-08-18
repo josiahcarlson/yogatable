@@ -1,0 +1,2 @@
+This software is copyright 2010 Josiah Carlson and is released under
+the GNU GPL version 2, which is included as gpl-2.0.txt .

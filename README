@@ -1,4 +1,5 @@
-PySDS is the Python Simple Data Store.
+YogaTable is a new schemaless NoSQL database meant to offer query semantics
+similar to Google's AppEngine Datastore.
 
-It is meant to offer simple query and data storage semantics in a fashion
-similar to Google's Appengine Datastore.
+At present, YogaTable is incomplete.  Please follow my blog:
+http://dr-josiah.blogspot.com/ for updates.
