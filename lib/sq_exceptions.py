@@ -1,26 +1,38 @@
 
-class PySDSException(Exception):
+class YogaTableException(Exception):
     def __init__(self, string, *format):
-        Exception.__init__(self, string % format)
+        if format:
+            Exception.__init__(self, string % format)
+        else:
+            Exception.__init__(self, string)
 
-
-class IndexWarning(PySDSException):
+class IndexWarning(YogaTableException):
     pass
 
-class IndexError(PySDSException):
+class TableIndexError(YogaTableException):
     pass
 
-class ColumnException(PySDSException):
+class ColumnException(YogaTableException):
+    pass
+
+class TableNameError(YogaTableException):
     pass
 
 
-class PackError(PySDSException):
+class PackError(YogaTableException):
     pass
 
 class IndexRowTooLong(PackError):
     pass
 
 class TooManyIndexRows(PackError):
+    pass
+
+
+class InvalidOperation(YogaTableException):
+    pass
+
+class UnknownExceptionError(YogaTableException):
     pass
 
 BAD_NAMES = frozenset('''
