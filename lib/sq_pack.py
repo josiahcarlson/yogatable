@@ -7,6 +7,10 @@ import struct
 
 import sq_exceptions
 
+class Some(object):
+    pass
+Some = Some()
+
 def _pack_int(v, case_sensitive=True, neg=False):
     '''
     This will pack a positive or negative integer of at most 128 base-256
@@ -154,6 +158,10 @@ def _pack_none(v, case_sensitive=True, neg=False):
     # We will differentiate None from the lack of a value.
     return 'z' if neg else 'a'
 
+def _pack_some(v, case_sensitive=True, neg=False):
+    # We will differentiate None from the lack of a value.
+    return 'a' if neg else 'z'
+
 def _pack_sequence(seq, case_sensitive=True, neg=False):
     out = []
     for v in seq:
@@ -177,6 +185,7 @@ PACK_TABLE = {
     tuple: _pack_sequence,
     list: _pack_sequence,
     set: _pack_sequence,
+    type(Some): _pack_some,
 }
 
 def pack(v, case_sensitive=True, neg=False, _type=type, _table=PACK_TABLE):
