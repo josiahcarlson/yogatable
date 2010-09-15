@@ -3,8 +3,8 @@ from functools import wraps
 import time
 
 # imported for the side-effect
-from .lib import sq_adapt
-sq_adapt # to silence the pyflakes warning
+from .lib import adapt
+adapt # to silence the pyflakes warning
 
 def _check_data(method):
     @wraps(method)

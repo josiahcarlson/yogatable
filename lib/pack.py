@@ -5,11 +5,15 @@ from decimal import Decimal as decimal
 import itertools
 import struct
 
-import sq_exceptions
+import exceptions
 
-class Some(object):
-    pass
-Some = Some()
+class SomeType(object):
+    '''
+    The SomeType and Some names are the practical application of a rejected
+    PEP originating from November 2003.  Their use here is a small joke.
+    '''
+Some = SomeType()
+del SomeType
 
 def _pack_int(v, case_sensitive=True, neg=False):
     '''
@@ -237,7 +241,7 @@ def generate_index_rows(data, index_dict, _pack=pack, **kwargs):
             index_row_count += cnt
 
     if index_row_count > max_row_count and row_over_count is FAIL:
-        raise sq_exceptions.TooManyIndexRows("Index row count %i exceeds maximum count %i"%(index_row_count, max_row_count))
+        raise exceptions.TooManyIndexRows("Index row count %i exceeds maximum count %i"%(index_row_count, max_row_count))
 
     for data in usable_indexes:
         # we have all non-nulls and all non-empty lists
@@ -253,7 +257,7 @@ def generate_index_rows(data, index_dict, _pack=pack, **kwargs):
                 elif row_over_size is TRUNCATE:
                     row = row[:max_row_len+lir]
                 else:
-                    raise sq_exceptions.IndexRowTooLong("Index row with length %i > maximum length %i"%(rowlen, max_row_len))
+                    raise exceptions.IndexRowTooLong("Index row with length %i > maximum length %i"%(rowlen, max_row_len))
 
             index_rows.append(buffer(row))
 

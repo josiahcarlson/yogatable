@@ -5,18 +5,18 @@ import sys
 import time
 import unittest
 
-from .lib import sq_pack
-from .lib import sq_table
-from .lib.sq_exceptions import ColumnException, IndexRowTooLong, \
+from .lib import pack
+from .lib import table
+from .lib.exceptions import ColumnException, IndexRowTooLong, \
     IndexWarning, TooManyIndexRows
 
 
 class TableAdapterTest(unittest.TestCase):
     def setUp(self):
-        self.table = sq_table.TableAdapter('test_table.sqlite', 'test_table')
+        self.table = table.TableAdapter('test_table.sqlite', 'test_table')
         # get rid of the old data
         self.tearDown()
-        self.table = sq_table.TableAdapter('test_table.sqlite', 'test_table')
+        self.table = table.TableAdapter('test_table.sqlite', 'test_table')
 
     def tearDown(self):
         self.table.drop_table(self.table.get_drop_key())
@@ -43,29 +43,29 @@ class TableAdapterTest(unittest.TestCase):
     def test_index_rows(self):
         data = {'col1':1, 'col2':range(10), 'col3':6}
         self.table.add_index('col1', 'col2', 'col3')
-        self.assertEquals(len(sq_pack.generate_index_rows(data, self.table.indexes_to_ids)[1]), 10)
-        self.assertRaises(TooManyIndexRows, lambda: sq_pack.generate_index_rows(
+        self.assertEquals(len(pack.generate_index_rows(data, self.table.indexes_to_ids)[1]), 10)
+        self.assertRaises(TooManyIndexRows, lambda: pack.generate_index_rows(
             {'col1':range(10), 'col2':range(3), 'col3':range(4)},
             self.table.indexes_to_ids, max_row_count=100)
         )
-        self.assertEquals(len(sq_pack.generate_index_rows(
+        self.assertEquals(len(pack.generate_index_rows(
             {'col1':range(10), 'col2':range(5), 'col3':range(4)},
             self.table.indexes_to_ids, max_row_count=201)[1]),
             200
         )
-        self.assertRaises(IndexRowTooLong, lambda: sq_pack.generate_index_rows(
+        self.assertRaises(IndexRowTooLong, lambda: pack.generate_index_rows(
             {'col1':100*'1', 'col2':100*'2', 'col3':100*'3'},
-            self.table.indexes_to_ids, row_over_size=sq_pack.FAIL)
+            self.table.indexes_to_ids, row_over_size=pack.FAIL)
         )
-        self.assertEquals(sq_pack.generate_index_rows(
+        self.assertEquals(pack.generate_index_rows(
             {'col1':100*'1', 'col2':100*'2', 'col3':100*'3'},
-            self.table.indexes_to_ids, row_over_size=sq_pack.DISCARD),
+            self.table.indexes_to_ids, row_over_size=pack.DISCARD),
             (1, [])
         )
-        self.assertEquals(sq_pack.generate_index_rows(
+        self.assertEquals(pack.generate_index_rows(
             {'col1':100*'1', 'col2':100*'2', 'col3':100*'3'},
-            self.table.indexes_to_ids, row_over_size=sq_pack.TRUNCATE)[1][0][2:],
-            ''.join(sq_pack.pack([100*'1',100*'2',100*'3']))[:256]
+            self.table.indexes_to_ids, row_over_size=pack.TRUNCATE)[1][0][2:],
+            ''.join(pack.pack([100*'1',100*'2',100*'3']))[:256]
         )
         data['_id'] = self.table.insert(data)[0]
         self.assertEquals(self.table.search([('col1', '=', 1)]), [data])

@@ -6,14 +6,14 @@ import random
 import sys
 import unittest
 
-from .lib import sq_pack
+from .lib import pack
 
 class TestPacking(unittest.TestCase):
     def _verify(self, d, cs=True, neg=False):
         # this is a helper function that compares two sequences for
         # equivalence after encoding
         random.shuffle(d)
-        f = lambda x: sq_pack.pack(x, case_sensitive=cs, neg=neg)
+        f = lambda x: pack.pack(x, case_sensitive=cs, neg=neg)
         e = map(f, d)
         if not cs:
             d = [di.lower() for di in d]
@@ -56,7 +56,7 @@ class TestPacking(unittest.TestCase):
         # This tests decimal packing with and without binary-coded-decimal
         # mantissas.
         self.test_packing_float(t=decimal.Decimal)
-        sq_pack.USE_BCD = False
+        pack.USE_BCD = False
         self.test_packing_float(t=decimal.Decimal)
 
     def test_packing_str(self):
@@ -84,8 +84,8 @@ class TestPacking(unittest.TestCase):
 
     def test_pack_sequence(self):
         data = (1, 40L, 1.4, decimal.Decimal('4.2'), 'hello', u'hello', None)
-        seqa = sq_pack.pack(data)
-        seqb = tuple(map(sq_pack.pack, data))
+        seqa = pack.pack(data)
+        seqb = tuple(map(pack.pack, data))
         self.assertEquals(seqa, seqb)
 
     def test_packing_datetime(self):

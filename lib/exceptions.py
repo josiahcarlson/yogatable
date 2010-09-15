@@ -9,6 +9,9 @@ class YogaTableException(Exception):
 class IndexWarning(YogaTableException):
     pass
 
+class MalformedFilterError(YogaTableException):
+    pass
+
 class TableIndexError(YogaTableException):
     pass
 
