@@ -195,17 +195,13 @@ PACK_TABLE = {
 def pack(v, case_sensitive=True, neg=False, _type=type, _table=PACK_TABLE):
     return _table[_type(v)](v, case_sensitive=case_sensitive, neg=neg)
 
-DISCARD = object()
-TRUNCATE = object()
-FAIL = object()
-
-def generate_index_rows(data, index_dict, _pack=pack, **kwargs):
+def generate_index_rows(data, index_dict, config, _pack=pack):
     # We need to generate the index rows for the given set of indexes and the
     # data provided.
-    max_row_count = min(kwargs.pop('max_row_count', 100), 10000)
-    max_row_len = min(kwargs.pop('max_row_len', 256), 4096)
-    row_over_count = kwargs.pop('row_over_count', FAIL)
-    row_over_size = kwargs.pop('row_over_size', TRUNCATE)
+    max_row_count = config.MAX_INDEX_ROW_COUNT
+    max_row_len = config.MAX_INDEX_ROW_LENGTH
+    row_over_count = config.TOO_MANY_ROWS
+    row_over_size = config.ROW_TOO_LONG
 
     _seqs = (tuple, list)
     cache = {}
@@ -240,7 +236,7 @@ def generate_index_rows(data, index_dict, _pack=pack, **kwargs):
                 cnt *= len(col_data)
             index_row_count += cnt
 
-    if index_row_count > max_row_count and row_over_count is FAIL:
+    if index_row_count > max_row_count and row_over_count == 'fail':
         raise exceptions.TooManyIndexRows("Index row count %i exceeds maximum count %i"%(index_row_count, max_row_count))
 
     for data in usable_indexes:
@@ -252,9 +248,9 @@ def generate_index_rows(data, index_dict, _pack=pack, **kwargs):
             lir = len(irow[0])
             rowlen = len(row) - lir
             if rowlen > max_row_len:
-                if row_over_size is DISCARD:
+                if row_over_size == 'discard':
                     continue
-                elif row_over_size is TRUNCATE:
+                elif row_over_size == 'truncate':
                     row = row[:max_row_len+lir]
                 else:
                     raise exceptions.IndexRowTooLong("Index row with length %i > maximum length %i"%(rowlen, max_row_len))

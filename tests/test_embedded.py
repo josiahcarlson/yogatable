@@ -5,6 +5,7 @@ import time
 import unittest
 
 import embedded
+from .lib import default_config
 from .lib import exceptions
 
 class TestEmbedded(unittest.TestCase):
@@ -15,7 +16,7 @@ class TestEmbedded(unittest.TestCase):
             pass
         else:
             os.unlink('test.sqlite')
-        self.db = embedded.Database('.')
+        self.db = embedded.Database('.', default_config)
 
     def tearDown(self):
         self.db.test.drop_table(self.db.test.get_drop_key())
@@ -100,3 +101,50 @@ class TestEmbedded(unittest.TestCase):
         # verify that you cannot create an empty index
         self.assertRaises(exceptions.IndexWarning, lambda:self.db.test.add_index())
 
+    def test_info(self):
+        inf = self.db.test.info()
+        self.assertTrue(inf['disk_size'] > 0)
+        self.assertTrue(not inf['indexes_del'])
+        self.assertTrue(not inf['indexes_add'])
+        self.assertTrue(not inf['indexes'])
+        self.assertTrue(inf['total_size'] > 0)
+        self.assertTrue(inf['page_count'] > 0)
+        self.assertTrue(inf['page_size'] > 0)
+        self.assertTrue(inf['freelist_count'] == 0)
+        self.assertTrue(inf['unused_size'] == 0)
+        self.assertTrue(inf['cache_size'] == default_config.CACHE_SIZE)
+        self.assertTrue(inf['auto_vacuum'] == default_config.AUTOVACUUM)
+
+class TestAutovacuum(unittest.TestCase):
+    def setUp(self):
+        try:
+            os.stat('test.sqlite')
+        except:
+            pass
+        else:
+            os.unlink('test.sqlite')
+        default_config.AUTOVACUUM = 2
+        default_config.MINIMUM_VACUUM_BLOCKS = 10
+        default_config.MAXIMUM_VACUUM_BLOCKS = 100
+        self.db = embedded.Database('.', default_config)
+
+    def tearDown(self):
+        global default_config
+        default_config = reload(default_config)
+        self.db.test.drop_table(self.db.test.get_drop_key())
+        self.db.shutdown_with_kill()
+
+    def test_autovacuum(self):
+        data = 8192*'1'
+        d = [{'i':i, 'data':data} for i in xrange(1000)]
+        r = self.db.test.insert(d)
+        for ri, di in zip(r,d):
+            di['_id'] = ri
+        self.db.test.delete([dd['_id'] for dd in d])
+        def fr():
+            return self.db.test.info()['freelist_count']
+        start = free = fr()
+        while free >= default_config.MINIMUM_VACUUM_BLOCKS:
+            print "autovacuum progress: %i / %i" % (start-free, start)
+            time.sleep(1)
+            free = fr()

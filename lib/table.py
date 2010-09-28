@@ -68,9 +68,9 @@ def _cursor(cursor):
     else:
         yield cursor
 
-def _index_rows(data, indexes_to_ids):
+def _index_rows(data, indexes_to_ids, config):
     # get the rows to index first
-    row_count, index_rows = generate_index_rows(data, indexes_to_ids)
+    row_count, index_rows = generate_index_rows(data, indexes_to_ids, config)
     if '_id' not in data:
         data['_id'] = new_uuid()
     rowref = data['_id']
@@ -80,22 +80,26 @@ def _index_rows(data, indexes_to_ids):
 class TableAdapter(object):
     class INDEX_FLAGS:
         deleting = 0x1
-    def __init__(self, dbfile, tablename, *args, **kwargs):
+    def __init__(self, dbfile, tablename, config):
         # todo: should probably replace the sqlite3 connect with a passed
         # backend parameter
-        kwargs['detect_types'] = sqlite3.PARSE_DECLTYPES
-        page_size = kwargs.pop('page_size', 8192)
-        assert page_size in PAGE_SIZES
+        self.config = config
+        assert config.BLOCK_SIZE in PAGE_SIZES
+        assert config.AUTOVACUUM in (0, 1, 2)
         self.dbfile = dbfile
-        self.db = sqlite3.connect(dbfile, *args, **kwargs)
-        self.db.execute('PRAGMA page_size = %i'%(page_size,))
-        self.db.execute('PRAGMA foreign_keys = ON;').fetchone()
+        self.db = sqlite3.connect(dbfile, detect_types=sqlite3.PARSE_DECLTYPES)
+        self.db.execute('PRAGMA page_size = %i'%(config.BLOCK_SIZE,))
+        self.db.execute('PRAGMA cache_size = %i'%(config.CACHE_SIZE,))
+
+        config_autovac = config.AUTOVACUUM == 0
+        autovac = self._pragma_read('auto_vacuum') == 0
+        self.db.execute('PRAGMA auto_vacuum = %i'%(config.AUTOVACUUM,))
+        if autovac ^ config_autovac:
+            # need to vacuum to get the system working properly :'(
+            self.db.execute('VACUUM')
         self.table = tablename
         self.drop_key = object()
         self._setup()
-
-    def _get_freelist_count(self):
-        return self.db.execute('PRAGMA freelist_count;').fetchone()[0]
 
     def _setup(self):
         # create the index listing if it doesn't exist
@@ -174,6 +178,26 @@ class TableAdapter(object):
 
         return None, None
 
+    def _pragma_read(self, pragma):
+        with self.db as conn:
+            for row, in conn.execute('PRAGMA %s' % pragma):
+                return row
+
+    def info(self):
+        info = {}
+        info['indexes'] = self.known_indexes
+        info['indexes_del'] = self.indexes_being_removed
+        info['indexes_add'] = self.indexes_in_progress
+        info['disk_size'] = os.stat(self.dbfile).st_size
+        info['page_size'] = self._pragma_read('page_size')
+        info['page_count'] = self._pragma_read('page_count')
+        info['freelist_count'] = self._pragma_read('freelist_count')
+        info['total_size'] = info['page_size'] * info['page_count']
+        info['unused_size'] = info['page_size'] * info['freelist_count']
+        info['cache_size'] = self._pragma_read('cache_size')
+        info['auto_vacuum'] = self._pragma_read('auto_vacuum')
+        return info
+
     def insert(self, data, cursor=None):
         '''
         Inserts one or more rows into the database, will return a tuple of)
@@ -186,7 +210,7 @@ class TableAdapter(object):
             ret = []
             iinsert = []
             for drow in data:
-                rowref, row_count, index_rows = _index_rows(drow, self.indexes_to_ids)
+                rowref, row_count, index_rows = _index_rows(drow, self.indexes_to_ids, self.config)
                 ret.append((rowref, row_count, len(index_rows)))
                 iinsert.extend(index_rows)
             with _cursor(cursor or self.db) as cur:
@@ -194,7 +218,7 @@ class TableAdapter(object):
                 self.index.insert_many(iinsert, conn=cur)
             return ret
 
-        rowref, row_count, index_rows = _index_rows(data, self.indexes_to_ids)
+        rowref, row_count, index_rows = _index_rows(data, self.indexes_to_ids, self.config)
 
         # insert the data, then insert the index rows
         with _cursor(cursor or self.db) as cur:
@@ -232,7 +256,7 @@ class TableAdapter(object):
         indexes = self.indexes_to_ids
         if index_only:
             indexes = dict((index, self.indexes_to_ids[index]) for index in self.indexes_in_progress)
-        count, new_keys = generate_index_rows(data, indexes)
+        count, new_keys = generate_index_rows(data, indexes, self.config)
         new_keys = set(new_keys)
         to_add = new_keys - old_keys
 

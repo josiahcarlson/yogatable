@@ -10,9 +10,9 @@ from .lib import table as adapt_table
 
 def handle_exception(processor):
     @wraps(processor)
-    def run(path, table, queue, results):
+    def run(config, table, queue, results):
         try:
-            return processor(path, table, queue, results)
+            return processor(config, table, queue, results)
         except (KeyboardInterrupt, SystemExit):
             raise
         except Exception:
@@ -22,13 +22,10 @@ def handle_exception(processor):
             raise
     return run
 
-DESIRED_LATENCY = .1
-ALLOWED_IDLE_PASSES = 100
-
 @handle_exception
-def queue_processor(path, table, queue, results):
+def queue_processor(config, table, queue, results):
     # open or create the table
-    table_adapter = adapt_table.TableAdapter(os.path.join(path, table + '.sqlite'), table)
+    table_adapter = adapt_table.TableAdapter(os.path.join(config.PATH, table + '.sqlite'), table, config)
     # respond with the list of known indexes
     results.put((None, None, {'response':'indexes', 'table_name':table, 'value':table_adapter.known_indexes}))
     keep_running = True
@@ -42,7 +39,7 @@ def queue_processor(path, table, queue, results):
 
         # If we don't have any pending operations, and we haven't performed
         # any operations for a little while...do some indexing.
-        if in_progress and not qsize and idle_passes > ALLOWED_IDLE_PASSES:
+        if in_progress and not qsize and idle_passes > config.ALLOWED_IDLE_PASSES:
             now = time.time()
             with table_adapter.db as cursor:
                 li, rows = table_adapter._next_index_row(index_count, cursor)
@@ -63,13 +60,13 @@ def queue_processor(path, table, queue, results):
             # same 100 ms after queries have come in before we start indexing
             # again.
             dt = (time.time() - now) or .001
-            index_count = int(min(100, max(1, index_count * DESIRED_LATENCY / dt)))
+            index_count = int(min(100, max(1, index_count * config.DESIRED_LATENCY / dt)))
             idle_passes += 1
             continue
 
         # If we don't have any pending operations, and we haven't performed
         # any operations for a little while...delete some indexes.
-        if being_deleted and not qsize and idle_passes > ALLOWED_IDLE_PASSES:
+        if being_deleted and not qsize and idle_passes > config.ALLOWED_IDLE_PASSES:
             now = time.time()
             to_delete = being_deleted[0]
             start = pack.pack(to_delete)[1:]
@@ -85,8 +82,20 @@ def queue_processor(path, table, queue, results):
             # indexing.  We'll increase the number of index rows that we'll
             # delete as long as it stays under our desired 100ms latency.
             dt = (time.time() - now) or .001
-            delete_count = int(min(5000, max(1, deleted * DESIRED_LATENCY / dt)))
+            delete_count = int(min(5000, max(1, deleted * config.DESIRED_LATENCY / dt)))
             idle_passes += 1
+            continue
+
+        if not qsize and config.AUTOVACUUM == 2 and idle_passes > config.ALLOWED_IDLE_PASSES:
+            fc = table_adapter._pragma_read('freelist_count')
+            if fc >= config.MINIMUM_VACUUM_BLOCKS:
+                vac = min(fc, config.MAXIMUM_VACUUM_BLOCKS)
+                rem = fc - vac
+                if rem and rem < config.MINIMUM_VACUUM_BLOCKS:
+                    # If we were to vacuum the maximum, then we couldn't
+                    # vacuum the remainder next pass.
+                    vac -= config.MINIMUM_VACUUM_BLOCKS
+                table_adapter.db.execute('PRAGMA incremental_vacuum(%i)'%(vac,))
             continue
 
         if not qsize:

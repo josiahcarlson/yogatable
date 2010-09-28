@@ -20,8 +20,8 @@ class Database(object):
     '''
     Instantiate one of me with the path where your tables should be stored.
     '''
-    def __init__(self, path):
-        self._path = path
+    def __init__(self, path, config):
+        self._config = config
         self._shutting_down = False
         self._outgoing_queues = {}
         self._processors = {}
@@ -87,7 +87,7 @@ class Database(object):
             if table_name not in self._processors or not self._processors[table_name].is_alive():
                 self._processors[table_name] = p = multiprocessing.Process(
                     target=processor.queue_processor,
-                    args=(self._path,
+                    args=(self._config,
                           table_name,
                           self._outgoing_queues[table_name],
                           self._incoming_responses))
@@ -128,15 +128,16 @@ class Database(object):
         queue_processor() processes to the requesting thread's queue.
         '''
         passes = 0
+        Empty = Queue.Empty
         while (not self._shutting_down) or self._processors:
             passes += 1
-            if not passes % (256 * (len(self._responses) or 1)):
+            if not passes % (self._config.THREAD_CLEANUP_RATE * (len(self._responses) or 1)):
                 # handle thread cleanup every once in a while
                 self._cleanup()
             # get a response
             try:
                 response = self._incoming_responses.get(timeout=1)
-            except Queue.Empty:
+            except Empty:
                 continue
             # find it's destination
             rqueue = self._responses.get(response[0])
@@ -182,16 +183,7 @@ class Database(object):
                 continue
             break
 
-        if 'exception' in response:
-            # handle exceptions
-            exc_class = response['exception']
-            if hasattr(exceptions, exc_class):
-                raise getattr(exceptions, exc_class)(*response['args'])
-            elif hasattr(__builtins__, exc_class):
-                raise getattr(__builtins__, exc_class)(*response['args'])
-            raise exceptions.UnknownExceptionError(
-                "Exception %r could not be raised with message %r", exc_class, response['args'])
-
+        exceptions.check_response(response)
         assert response['response'] == 'ok'
         return response['value']
 

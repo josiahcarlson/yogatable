@@ -5,6 +5,7 @@ import sys
 import time
 import unittest
 
+from .lib import default_config
 from .lib import pack
 from .lib import table
 from .lib.exceptions import ColumnException, IndexRowTooLong, \
@@ -13,14 +14,16 @@ from .lib.exceptions import ColumnException, IndexRowTooLong, \
 
 class TableAdapterTest(unittest.TestCase):
     def setUp(self):
-        self.table = table.TableAdapter('test_table.sqlite', 'test_table')
+        self.table = table.TableAdapter('test_table.sqlite', 'test_table', default_config)
         # get rid of the old data
         self.tearDown()
-        self.table = table.TableAdapter('test_table.sqlite', 'test_table')
+        self.table = table.TableAdapter('test_table.sqlite', 'test_table', default_config)
 
     def tearDown(self):
         self.table.drop_table(self.table.get_drop_key())
         del self.table
+        global default_config
+        default_config = reload(default_config)
 
     def test_create_index(self):
         self.table.add_index('col1', 'col2', '-col3', 'col4')
@@ -43,28 +46,35 @@ class TableAdapterTest(unittest.TestCase):
     def test_index_rows(self):
         data = {'col1':1, 'col2':range(10), 'col3':6}
         self.table.add_index('col1', 'col2', 'col3')
-        self.assertEquals(len(pack.generate_index_rows(data, self.table.indexes_to_ids)[1]), 10)
+        default_config.ROW_TOO_LONG = 'truncate'
+        default_config.MAX_INDEX_ROW_LENGTH = 256
+        self.assertEquals(len(pack.generate_index_rows(data, self.table.indexes_to_ids, default_config)[1]), 10)
         self.assertRaises(TooManyIndexRows, lambda: pack.generate_index_rows(
             {'col1':range(10), 'col2':range(3), 'col3':range(4)},
-            self.table.indexes_to_ids, max_row_count=100)
+            self.table.indexes_to_ids, default_config)
         )
+        default_config.MAX_INDEX_ROW_COUNT = 201
         self.assertEquals(len(pack.generate_index_rows(
             {'col1':range(10), 'col2':range(5), 'col3':range(4)},
-            self.table.indexes_to_ids, max_row_count=201)[1]),
+            self.table.indexes_to_ids, default_config)[1]),
             200
         )
+        default_config.MAX_INDEX_ROW_COUNT = 100
+        default_config.ROW_TOO_LONG = 'fail'
         self.assertRaises(IndexRowTooLong, lambda: pack.generate_index_rows(
             {'col1':100*'1', 'col2':100*'2', 'col3':100*'3'},
-            self.table.indexes_to_ids, row_over_size=pack.FAIL)
+            self.table.indexes_to_ids, default_config)
         )
+        default_config.ROW_TOO_LONG = 'discard'
         self.assertEquals(pack.generate_index_rows(
             {'col1':100*'1', 'col2':100*'2', 'col3':100*'3'},
-            self.table.indexes_to_ids, row_over_size=pack.DISCARD),
+            self.table.indexes_to_ids, default_config),
             (1, [])
         )
+        default_config.ROW_TOO_LONG = 'truncate'
         self.assertEquals(pack.generate_index_rows(
             {'col1':100*'1', 'col2':100*'2', 'col3':100*'3'},
-            self.table.indexes_to_ids, row_over_size=pack.TRUNCATE)[1][0][2:],
+            self.table.indexes_to_ids, default_config)[1][0][2:],
             ''.join(pack.pack([100*'1',100*'2',100*'3']))[:256]
         )
         data['_id'] = self.table.insert(data)[0]

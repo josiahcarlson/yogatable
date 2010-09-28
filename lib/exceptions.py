@@ -38,6 +38,21 @@ class InvalidOperation(YogaTableException):
 class UnknownExceptionError(YogaTableException):
     pass
 
+
+class BadResponseCode(YogaTableException):
+    pass
+
+def check_response(response):
+    if 'exception' in response:
+        # handle exceptions
+        exc_class = response['exception']
+        if exc_class in globals():
+            raise globals()[exc_class](*response['args'])
+        elif hasattr(__builtins__, exc_class):
+            raise getattr(__builtins__, exc_class)(*response['args'])
+        raise UnknownExceptionError(
+            "Exception %r could not be raised with message %r", exc_class, response['args'])
+
 BAD_NAMES = frozenset('''
     ABORT ADD AFTER ALL ALTER ANALYZE AND AS ASC ATTACH AUTOINCREMENT BEFORE
     BEGIN BETWEEN BY CASCADE CASE CAST CHECK COLLATE COLUMN COMMIT CONFLICT
