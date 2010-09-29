@@ -145,6 +145,6 @@ class TestAutovacuum(unittest.TestCase):
             return self.db.test.info()['freelist_count']
         start = free = fr()
         while free >= default_config.MINIMUM_VACUUM_BLOCKS:
-            print "autovacuum progress: %i / %i" % (start-free, start)
+            print >>sys.stderr, "autovacuum progress: %i / %i" % (start-free, start)
             time.sleep(1)
             free = fr()
