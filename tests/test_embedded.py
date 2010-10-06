@@ -16,7 +16,7 @@ class TestEmbedded(unittest.TestCase):
             pass
         else:
             os.unlink('test.sqlite')
-        self.db = embedded.Database('.', default_config)
+        self.db = embedded.Database(default_config)
 
     def tearDown(self):
         self.db.test.drop_table(self.db.test.get_drop_key())
@@ -126,7 +126,7 @@ class TestAutovacuum(unittest.TestCase):
         default_config.AUTOVACUUM = 2
         default_config.MINIMUM_VACUUM_BLOCKS = 10
         default_config.MAXIMUM_VACUUM_BLOCKS = 100
-        self.db = embedded.Database('.', default_config)
+        self.db = embedded.Database(default_config)
 
     def tearDown(self):
         global default_config

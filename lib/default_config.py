@@ -4,11 +4,15 @@
 #-----------------------------------------------------------------------------
 # Where to store the data for YogaTable.
 PATH = '.'
-# How long to allow the embedded/remote server to lag while indexing or
-# unindexing data.
-DESIRED_LATENCY = .01
+# What port to listen on when using the server version of YogaTable
+PORT = 8765
+# What host to listen on when using the server version of YogaTable
+HOST = '127.0.0.1'
+# How long to allow the embedded/remote server to lag while indexing data, 
+# unindexing data, or waiting for work.
+DESIRED_LATENCY = .001
 # How many idle passes through the processor loop to perform before attempting
-# to index/unindex data.
+# to index/unindex/autovacuum data.
 ALLOWED_IDLE_PASSES = 1
 # How many responses to process per attempt to clean up old thread queues.
 THREAD_CLEANUP_RATE = 256
@@ -29,6 +33,18 @@ MAX_INDEX_ROW_LENGTH = 512
 # row itself.
 ROW_TOO_LONG = 'fail'
 
+# When using the embedded or server modules, what tables to automatically
+# start processors for at startup?
+# Used as:
+# AUTOLOAD_TABLES = ['table1', 'table2', ...]
+AUTOLOAD_TABLES = []
+
+# When you want non-standard configuration for your tables, you can override
+# the table configuration like:
+# TABLE_CONFIGURATION = {'table1': {'PATH':'/var/local/table1'}}
+TABLE_CONFIGURATION = {}
+
+
 # Note: try to keep the below *_VACUUM_BLOCKS values reasonably low, it will
 # keep YogaTable responsive, even during cleanup.
 
@@ -40,7 +56,6 @@ MINIMUM_VACUUM_BLOCKS = 100
 MAXIMUM_VACUUM_BLOCKS = 1000
 
 
-
 #-----------------------------------------------------------------------------
 # The underlying sqlite configuration options.
 #-----------------------------------------------------------------------------
@@ -49,8 +64,12 @@ MAXIMUM_VACUUM_BLOCKS = 1000
 # Note: when changing this for an existing table from 0 to 1/2 or from 1/2 to
 # 0, YogaTable will automatically vacuum the underlying SQLite database.
 # Don't change this for an existing table unless you know what you are doing.
+# Also, as per http://www.sqlite.org/releaselog/3_7_2.html , using autovacuum
+# 2 may result in corruption, depending on your version of sqlite.
 AUTOVACUUM = 1
-# number of blocks to tell the system to cache per table
+# Number of blocks to tell the system to cache per table, increase or decrease
+# as your needs warrant.  Generally, if you have memory to spare, this will
+# improve performance significantly.
 CACHE_SIZE = 2000
 # size of blocks in newly created tables
 BLOCK_SIZE = 8192

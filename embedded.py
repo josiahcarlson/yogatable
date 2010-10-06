@@ -10,6 +10,7 @@ import re
 import threading
 import time
 
+from lib import conf
 from lib import exceptions
 from lib import processor
 
@@ -20,7 +21,9 @@ class Database(object):
     '''
     Instantiate one of me with the path where your tables should be stored.
     '''
-    def __init__(self, path, config):
+    def __init__(self, config):
+        if not hasattr(config, 'table_config'):
+            config = conf.Config(config)
         self._config = config
         self._shutting_down = False
         self._outgoing_queues = {}
@@ -87,7 +90,7 @@ class Database(object):
             if table_name not in self._processors or not self._processors[table_name].is_alive():
                 self._processors[table_name] = p = multiprocessing.Process(
                     target=processor.queue_processor,
-                    args=(self._config,
+                    args=(self._config.table_config(table_name),
                           table_name,
                           self._outgoing_queues[table_name],
                           self._incoming_responses))

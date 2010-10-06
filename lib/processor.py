@@ -28,6 +28,7 @@ def queue_processor(config, table, queue, results):
     table_adapter = adapt_table.TableAdapter(os.path.join(config.PATH, table + '.sqlite'), table, config)
     # respond with the list of known indexes
     results.put((None, None, {'response':'indexes', 'table_name':table, 'value':table_adapter.known_indexes}))
+    idle_sleep = max(.001, min(.1, config.DESIRED_LATENCY))
     keep_running = True
     idle_passes = 0
     index_count = 1
@@ -60,7 +61,7 @@ def queue_processor(config, table, queue, results):
             # same 100 ms after queries have come in before we start indexing
             # again.
             dt = (time.time() - now) or .001
-            index_count = int(min(100, max(1, index_count * config.DESIRED_LATENCY / dt)))
+            index_count = int(min(100, max(1, index_count * idle_sleep / dt)))
             idle_passes += 1
             continue
 
@@ -82,7 +83,7 @@ def queue_processor(config, table, queue, results):
             # indexing.  We'll increase the number of index rows that we'll
             # delete as long as it stays under our desired 100ms latency.
             dt = (time.time() - now) or .001
-            delete_count = int(min(5000, max(1, deleted * config.DESIRED_LATENCY / dt)))
+            delete_count = int(min(5000, max(1, deleted * idle_sleep / dt)))
             idle_passes += 1
             continue
 
@@ -110,7 +111,7 @@ def queue_processor(config, table, queue, results):
         if len(q) != 5:
             print "wha?", q
         sid, oid, operation, args, kwargs = q
-        if not sid:
+        if sid is None:
             break
 
         old = None

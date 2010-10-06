@@ -183,6 +183,9 @@ class TableAdapter(object):
             for row, in conn.execute('PRAGMA %s' % pragma):
                 return row
 
+    def ping(self):
+        return "pong"
+
     def info(self):
         info = {}
         info['indexes'] = self.known_indexes
