@@ -125,7 +125,6 @@ class TestAutovacuum(unittest.TestCase):
             os.unlink('test.sqlite')
         default_config.AUTOVACUUM = 2
         default_config.MINIMUM_VACUUM_BLOCKS = 10
-        default_config.MAXIMUM_VACUUM_BLOCKS = 100
         self.db = embedded.Database(default_config)
 
     def tearDown(self):

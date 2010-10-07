@@ -35,8 +35,10 @@ class Database(object):
         self._known_indexes = {}
         self._local = threading.local()
         self._tables = {}
+        for table_name in self._config.AUTOLOAD_TABLES:
+            self._get_or_setup_command_queue(table_name)
 
-    def shutdown_when_done(self):
+    def shutdown_when_done(self, wait=True):
         '''
         Shutdown all processors when they've completed all currently
         outstanding queries.
@@ -52,6 +54,8 @@ class Database(object):
                     if x:
                         x.put((None, None, '_quit', (), {}))
                 sent = known
+            if not wait:
+                break
             time.sleep(.001)
 
     def shutdown_with_kill(self):

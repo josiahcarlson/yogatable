@@ -9,11 +9,13 @@ PORT = 8765
 # What host to listen on when using the server version of YogaTable
 HOST = '127.0.0.1'
 # How long to allow the embedded/remote server to lag while indexing data, 
-# unindexing data, or waiting for work.
-DESIRED_LATENCY = .001
-# How many idle passes through the processor loop to perform before attempting
-# to index/unindex/autovacuum data.
-ALLOWED_IDLE_PASSES = 1
+# unindexing data, or vacuuming the underlying database.  The higher the
+# number here, the faster the maintenance operations will finish.  The lower
+# the number here, the lower the latency when a request does finally come in.
+DESIRED_LATENCY = .010
+# How long to wait until starting to perform maintence operations after
+# responding to queries.
+IDLE_TIMEOUT = .025
 # How many responses to process per attempt to clean up old thread queues.
 THREAD_CLEANUP_RATE = 256
 
@@ -45,15 +47,12 @@ AUTOLOAD_TABLES = []
 TABLE_CONFIGURATION = {}
 
 
-# Note: try to keep the below *_VACUUM_BLOCKS values reasonably low, it will
+# Note: try to keep MINIMUM_VACUUM_BLOCKS values reasonably low, it will
 # keep YogaTable responsive, even during cleanup.
 
 # If AUTOVACUUM is set to 2, what is the minimum number of blocks that must be
-# empty to cause an incremental vacuum after ALLOWED_IDLE_PASSES have passed?
+# empty to cause an incremental vacuum after indexing/unindexing?
 MINIMUM_VACUUM_BLOCKS = 100
-# If AUTOVACUUM is set to 2, what is the maximum number of blocks that will be
-# reclaimed in a single incremental vacuum pass?
-MAXIMUM_VACUUM_BLOCKS = 1000
 
 
 #-----------------------------------------------------------------------------
