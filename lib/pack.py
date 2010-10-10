@@ -1,6 +1,6 @@
 
 import array
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timedelta
 from decimal import Decimal as decimal
 import itertools
 import struct
@@ -158,6 +158,11 @@ def _pack_time(v, case_sensitive=True, neg=False):
     microseconds = v.microsecond
     return 's' + _pack_int(seconds + microseconds, neg=neg)[1:]
 
+def _pack_timedelta(v, case_sensitive=True, neg=False):
+    assert v.tzinfo is None
+    microseconds = (v.days*86400 + v.seconds)*1000000 + v.microseconds
+    return 'r' + _pack_int(microseconds, neg=neg)[1:]
+
 def _pack_none(v, case_sensitive=True, neg=False):
     # We will differentiate None from the lack of a value.
     return 'z' if neg else 'a'
@@ -185,6 +190,7 @@ PACK_TABLE = {
     datetime:_pack_datetime,
     date:_pack_date,
     time:_pack_time,
+    timedelta:_pack_timedelta,
     type(None): _pack_none,
     tuple: _pack_sequence,
     list: _pack_sequence,
