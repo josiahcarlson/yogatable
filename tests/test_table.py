@@ -93,10 +93,48 @@ class TableAdapterTest(unittest.TestCase):
         data['col1'] = 3
         data['col3'] = 5
         self.table.update(data)
+        data['_id'] = rowid
         self.assertEquals(self.table.get(rowid), data)
         self.assertEquals(self.table.search([('col1', '=', 3), ('col3', '>', 4)]), [data])
         self.table.delete(rowid)
         self.assertEquals(self.table.get(rowid), None)
+
+    def test_update_increment(self):
+        d1 = {'value':decimal.Decimal('200.00')}
+        d2 = {'value':decimal.Decimal('0.00')}
+        ids = zip(*self.table.insert([d1, d2]))[0]
+        d1['_id'] = ids[0]
+        d2['_id'] = ids[1]
+        shared = {'transfer':decimal.Decimal('45.23')}
+        d1['value'] -= shared['transfer']
+        d2['value'] += shared['transfer']
+        out = self.table.update([
+            {'_id':ids[0],
+             '__ops':'''
+                (load types)
+                (define zero (decimal `0.00))
+                (define balance (getv `doc `value zero))
+                (define transfer (getv `shared `transfer zero))
+                (if (>= balance transfer)
+                    (begin
+                        (setv `doc `value (- balance transfer))
+                        (setv `shared `transferred #t)))
+                '''},
+            {'_id':ids[1],
+             '__ops':'''
+                (load types)
+                (define zero (decimal `0.00))
+                (define balance (getv `doc `value zero))
+                (define transfer (getv `shared `transfer zero))
+                (if (getv `shared `transferred #f)
+                    (setv `doc `value (+ balance transfer)))
+                (delv `shared `transferred)
+                (delv `shared `transfer)
+                '''}], shared=shared)
+        self.assertEquals(out, [d1, d2])
+        self.assertRaises(KeyError, lambda: self.table.update([{
+            '_id':ids[0],
+            '__ops':'''(getv `does-not-exist `value)'''}]))
 
     def _test_insert_performance(self):
         data = {'col1': 1, 'col2':'hey!', 'col3': datetime.datetime.utcnow()}

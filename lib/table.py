@@ -12,7 +12,8 @@ import time
 import uuid
 
 from .lib.exceptions import BAD_NAMES, ColumnException, IndexWarning, \
-    MalformedFilterError, TableIndexError
+    MalformedFilterError, TableIndexError, UpdateError
+from .thirdparty.lispy import run_script
 from .lib.om import DataTable, IndexInfo, IndexTable
 from .lib.pack import generate_index_rows, pack, Some
 
@@ -22,6 +23,16 @@ if sys.platform.startswith('win'):
 
 PAGE_SIZES = (512, 1024, 2048, 4096, 8192, 16384, 32768)
 COL_REGEX = re.compile('^[-+]?[a-z_][a-z0-9_]*[-+]?$')
+
+def _resolve(col, dct, op):
+    cols = col.split('.')
+    for ci in cols[:-1]:
+        if ci not in dct:
+            raise UpdateError(
+                "Column %r missing from existing row, cannot perform %r",
+                ci, op)
+        dct = dct[ci]
+    return cols[-1], dct
 
 def _add_one(string):
     a = map(ord, string)
@@ -244,16 +255,48 @@ class TableAdapter(object):
             self.data.delete(_id=id, conn=cur)
             self.index.delete(rowref=id, conn=cur)
 
-    def update(self, data, cursor=None, index_only=False):
+    def update(self, data, cursor=None, index_only=False, shared=None):
         '''
         Updates row or rows provided.  All are updated, or none are updated.
         '''
         if isinstance(data, list):
+            ir = lambda x: itertools.repeat(x, len(data))
             with _cursor(cursor or self.db) as cur:
-                return map(self.update, itertools.izip(data, itertools.repeat(cur)))
+                if shared is None:
+                    shared = {}
+                return map(self.update, data, ir(cur), ir(index_only), ir(shared))
 
-        data = dict(data)
+        if shared is None:
+            shared = {}
+
         rowref = data.pop('_id')
+        ops = data.pop('__ops', '')
+        operations = itertools.chain(data.iteritems(), [('__ops', ops)])
+
+        # If the row was previously deleted, this will silently create it as
+        # long as there are no operations on existing data.
+        _existing = self.get(rowref, cursor) or {}
+
+        for col, value in operations:
+            existing = _existing
+
+            if col != '__ops':
+                # handle simple assignment
+                col, existing = _resolve(col, existing, '=')
+                existing[col] = value
+                continue
+
+            # no operation, skip it
+            if not value:
+                continue
+
+            # actually perform an operation on the data
+            run_script(value, existing, shared)
+
+        # use the proper dictionary.
+        _existing.pop('_id', None)
+        data = _existing
+
         existing_keys = dict((str(k),v) for k,v in self.index.select(('idata', 'rowid'), rowref=rowref))
         old_keys = set(existing_keys)
         indexes = self.indexes_to_ids
@@ -271,6 +314,9 @@ class TableAdapter(object):
                     self.index.delete(rowid=sorted(existing_keys[key] for key in to_remove), conn=cur)
             if to_add:
                 self.index.insert_many(zip(to_add, itertools.repeat(rowref)), conn=cur)
+
+        data['_id'] = rowref
+        return data
 
     def get(self, id, cursor=None):
         '''

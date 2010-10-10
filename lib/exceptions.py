@@ -21,6 +21,8 @@ class ColumnException(YogaTableException):
 class TableNameError(YogaTableException):
     pass
 
+class UpdateError(YogaTableException):
+    pass
 
 class PackError(YogaTableException):
     pass
