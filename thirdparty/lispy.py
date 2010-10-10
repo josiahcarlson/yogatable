@@ -89,10 +89,10 @@ def tc(cls):
 types = {
     'set':lambda *x: set(x), 'dict':lambda *x: dict(x),'time':dt.time,
     'timedelta':dt.timedelta, 'datetime':dt.datetime, 'date':dt.date,
-    'decimal':decimal, 'set?':tc(set), 'dict?':tc(dict), 'time?':tc(dt.time),
+    'decimal':decimal, 'tuple':lambda *x:tuple(x),
+    'set?':tc(set), 'dict?':tc(dict), 'time?':tc(dt.time),
     'timedelta?':tc(dt.timedelta), 'datetime?':tc(dt.datetime),
-    'date?':tc(dt.date), 'decimal?':tc(decimal),
-
+    'date?':tc(dt.date), 'decimal?':tc(decimal), 'tuple?': tc(tuple),
 }
 LOADABLE = {
     'types': types,
@@ -131,7 +131,7 @@ def add_globals(env):
     c = compose
     env.update({'#t':True, '#f':False, '+':c(op.add), '-':c(op.sub),
         '*':c(op.mul), '/':c(op.div), 'not':op.not_, '>':op.gt, '<':op.lt,
-        '%':op.mod, '^':c(op.xor), '<<':op.lshift, '>>':op.rshift,
+        '%':op.mod, '^':c(op.xor), '<<':op.lshift, '>>':op.rshift, '**':pow,
         '>=':op.ge, '<=':op.le, '=':op.eq, 'equal?':op.eq, 'eq?':op.is_,
         'length':len, 'cons':lambda x,y:[x]+y, 'car':lambda x:x[0],
         'cdr':lambda x:x[1:], 'cadr':lambda x:x[1], 'append':op.add,
